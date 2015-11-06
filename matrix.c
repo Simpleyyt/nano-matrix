@@ -25,6 +25,22 @@ static void subtract_projection(MATRIX_TYPE *v, const MATRIX_TYPE *u, MATRIX_TYP
     }
 }
 
+void matrix_mul_at(matrix_t *dest, const matrix_t *at, const matrix_t *b) {
+    int row, column;
+
+    dest->rows = at->columns;
+    dest->columns = b->columns;
+
+    for (row = 0; row < dest->rows; row++) {
+        for (column = 0; column < dest->columns; column++) {
+            dest->data[row][column] = array_dot(
+                &at->data[0][row], MATRIX_SIZE,
+                &b->data[0][column], MATRIX_SIZE,
+                at->rows);
+        }
+    }
+}
+
 void matrix_add(matrix_t *dest, const matrix_t *a, const matrix_t *b) {
     matrix_addsub(dest, a, b, 1);
 }
@@ -60,7 +76,7 @@ void matrix_tranpose(matrix_t *dest, const matrix_t *matrix) {
 }
 
 
-void matrix_qr_decomposition(matrix_t *q, matrix_t *r, const matrix_t *matrix, int reorthogonalize) {
+int matrix_qr_decomposition(matrix_t *q, matrix_t *r, const matrix_t *matrix, int reorthogonalize) {
     int i, j, reorth;
     MATRIX_TYPE dot, norm;
     uint8_t stride = MATRIX_SIZE;
@@ -89,10 +105,42 @@ void matrix_qr_decomposition(matrix_t *q, matrix_t *r, const matrix_t *matrix, i
         norm = array_norm(&q->data[0][j], stride, n);
         r->data[i][j] = norm;
 
+        if (norm <= MATRIX_EPLILON && norm >= -MATRIX_EPLILON) {
+            return MATRIX_SINGULAR;
+        }
+
         for (i = 0; i < n; i++) {
             q->data[i][j] = q->data[i][j] / norm;
         }
     }
+    return MATRIX_OK;
+}
+
+
+int matrix_solve(matrix_t *dest, const matrix_t *q, const matrix_t *r, const matrix_t *matrix) {
+    int row, column, variable;
+
+    matrix_mul_at(dest, q, matrix);
+    for (column = 0; column < dest->columns; column++) {
+        for (row = dest->rows - 1; row >= 0; row--) {
+            MATRIX_TYPE value = dest->data[row][column];
+
+            for (variable = row + 1; variable < r->columns; variable++) {
+                MATRIX_TYPE multiplier = r->data[row][variable];
+                MATRIX_TYPE known_value = dest->data[variable][column];
+                MATRIX_TYPE product = multiplier * known_value;
+                value -= product;
+            }
+
+            MATRIX_TYPE divider = r->data[row][row];
+            if (divider <= MATRIX_EPLILON && divider >= -MATRIX_EPLILON) {
+                return MATRIX_SINGULAR;
+            }
+            MATRIX_TYPE result = value / divider;
+            dest->data[row][column] = result;
+        }
+    }
+    return MATRIX_OK;
 }
 
 void matrix_fill(matrix_t *dest, MATRIX_TYPE value) {

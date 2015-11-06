@@ -15,6 +15,6 @@ Run `./matrix` to run the test case.
 
  * [x] Matrix add, sub, mul, tranpose
  * [x] QR decomposition
- * [ ] Error check
+ * [x] Error check
  * [ ] Matrix inverse
- * [ ] Solve linear equations
+ * [x] Solve linear equations
